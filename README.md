@@ -7,7 +7,7 @@ Tested on a machine with Nvidia 2080Ti, Ubuntu 16.04/18.04, Tensorflow 1.8.0 and
 - Keras
 
 # Install dyninst
-We use Dyninst to instrument target binaries. So firstly, install Dyninst [the branch](https://github.com/mxz297/dyninst).
+We use Dyninst to instrument target binaries. So firstly, install Dyninst [the branch](https://github.com/mxz297/dyninst).<br/>
 For the branch of dyninst, use `csifuzz`.
 ## step1
 ```bash
@@ -86,7 +86,7 @@ make
 ./CollAFLDyninst -i /path/to/need/instruct/binary -o /path/to/instructed/binary
 ```
 ## Usage
-After instrumenation, copy `NearedgeInfo.txt`,`instructed_binary`from /path/to/instructed/binary to ./programs/×××/. Then copy `new_nn.py`,`neuzz`,`afl-showmap`,`libCollAFLDyninst.so` to ./programs/×××/.
+After instrumenation, copy `NearedgeInfo.txt`,`instructed_binary`from /path/to/instructed/binary to ./programs/×××/. Then copy `new_nn.py`,`neuzz`,`afl-showmap`,`libCollAFLDyninst.so` to ./programs/×××/.<br>
 After completing this, We use a sample program readelf as an example to demonstrate how to execute.<br/>
 Open a terminal, start nn module
 ```bash
