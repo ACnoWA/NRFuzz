@@ -19,6 +19,8 @@ from tensorflow import set_random_seed
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.callbacks import ModelCheckpoint
+from random import sample
+from random import choice
 
 os.environ["CUDA_VISIBLE_DEVICES"]="0"
 HOST = '127.0.0.1'
@@ -56,8 +58,7 @@ def process_data():
     rand_index = np.arange(SPLIT_RATIO)
     np.random.shuffle(seed_list)
     new_seeds = glob.glob('./seeds/id_*')
-
-	near_edge = {}
+    near_edge = {}
 
     call = subprocess.check_output
 
@@ -71,35 +72,30 @@ def process_data():
     os.path.isdir("./splice_seeds/") or os.makedirs("./splice_seeds")
     os.path.isdir("./vari_seeds/") or os.makedirs("./vari_seeds")
     os.path.isdir("./crashes/") or os.makedirs("./crashes")
-    os.path.isdir("./seeds_exe_path/") or os.makedirs("./seeds_exe_path")
-    os.path.isdir("./select/") or os.makedirs("./select")
-    os.path.isdir("./edge_info/") or os.makedirs("./edge_info")
-    os.path.isdir("./ind_info/") or os.makedirs("./ind_info")
 
     # load near edges information into dictionary near_edge
     fl_n = open("./NearedgeInfo.txt", "r")
-    contents = f.readlines()
+    contents = fl_n.readlines()
     for item in contents:
-		tmp = item.split(b' ')
-		near_edge[tmp[0]] = tmp[1:-1]
-	fl_n.close()
-
+        tmp = item.split(b' ')
+        near_edge[tmp[0]] = tmp[1:-1]
+    fl_n.close()    
     # obtain raw bitmaps
     raw_bitmap = {}
-	eg2seed_dict = {}
+    eg2seed_dict = {}
     tmp_cnt = []
     out = ''
     print argvv
     for f in seed_list:
         tmp_list = []
-		tmp = []
+        tmp = []
         try:
             # append "-o tmp_file" to strip's arguments to avoid tampering tested binary.
             # 注意这两个call语句一定不能混用，会导致错误结果的
             if argvv[0] == './strip':
-                out = call(['./afl-showmap', '-q', '-e', '-o', '/dev/stdout', '-m', 'none', '-t', '500'] + argvv + [f] + ['-o', 'tmp_file'])
+                out = call(['./afl-showmap', '-q', '-e', '-o', '/dev/stdout', '-m', '512', '-t', '500'] + argvv + [f] + ['-o', 'tmp_file'])
             else:
-                out = call(['./afl-showmap', '-q', '-e', '-o', '/dev/stdout', '-m', 'none', '-t', '500'] + argvv + [f])
+                out = call(['./afl-showmap', '-q', '-e', '-o', '/dev/stdout', '-m', '512', '-t', '500'] + argvv + [f])
         except subprocess.CalledProcessError:
             print("find a crash")
         for line in out.splitlines():
@@ -108,33 +104,22 @@ def process_data():
             edge = edge.lstrip("0")
             tmp_cnt.append(edge)
             tmp_list.append(edge)
-	
-		#record seeds near edge
-		for item in tmp_list:
-			if(near_edge.get(edge, 'None') == 'None'):
-				continue
-			else:
-				tmp.extend(near_edge[edge])
-		for it in tmp:
-			if eg2seed_dict.has_key(it):
-				eg2seed_dict.append(f)
-			else:
-				eg2seed_dict[it] = [f]
-
-		'''
-        file_name = "./seeds_exe_path/" + f.split('/')[-1] + ".txt"
-        file_f = open(file_name, 'w')
-        for i in tmp_list:
-            file_f.write(i)
-            file_f.write('\n')
-        file_f.close()
-		'''
+    
+        #record seeds near edge
+        for item in tmp_list:
+            if(near_edge.get(item, 'None') == 'None'):
+                continue
+            else:
+                tmp.extend(near_edge[item])
+        n_tmp = list(set(tmp))
+        for it in n_tmp:
+            if eg2seed_dict.has_key(it):
+                eg2seed_dict[it].append(f)
+            else:
+                eg2seed_dict[it] = [f]
+        
         raw_bitmap[f] = tmp_list
     
-	fl_n = open("./eg2sd.txt", 'w')
-	fl_n.write(str(eg2seed_dict))
-	fl_n.close()
-	
     counter = Counter(tmp_cnt).most_common()
     tmp_cnt.sort()
     file_f = open("./all_exePath.txt", 'w')
@@ -144,7 +129,7 @@ def process_data():
     file_f.close()
     # save bitmaps to individual numpy label
     label = [int(f[0]) for f in counter]
-    print('the len of label is {}'.format(len(label)))
+    print('the len of label is {}\n'.format(len(label)))
     bitmap = np.zeros((len(seed_list), len(label)))
     for idx, i in enumerate(seed_list):
         tmp = raw_bitmap[i]
@@ -155,8 +140,27 @@ def process_data():
     # label dimension reduction
     fit_bitmap, res_index = np.unique(bitmap, axis=1, return_index=True)
     #get which edges the final output layer is
-    output_layer_edges = [label[i] for i in res_index]
-    np.savetxt("output_edges.txt", output_layer_edges)
+    output_layer_edges = [str(label[i]) for i in res_index]
+    fo = open('out_edges.txt', 'w')
+    for i in output_layer_edges:
+        fo.write(i)
+        fo.write('\n')
+    fo.close()
+
+    keys = eg2seed_dict.keys()
+
+    print("The keys len is {}\n".format(len(keys)))
+    diff_edges = list(set(keys).difference(set(output_layer_edges)))
+    print("The difference len is {}\n".format(len(diff_edges)))
+
+    for it in diff_edges:
+        eg2seed_dict.pop(it)
+    
+    print("The len of dict is {}\n".format(len(eg2seed_dict)))
+    
+    fl_n = open("./eg2sd.txt", 'w')
+    fl_n.write(str(eg2seed_dict))
+    fl_n.close()
 
     print("data dimension" + str(fit_bitmap.shape))
 
@@ -288,17 +292,17 @@ def gen_adv2(index, seed_file, model, layer_list, idxx, splice):
     grads = K.gradients(loss, model.input)[0]
     iterate = K.function([model.input], [loss, grads])
 
-	fls_len = 2
-	while seed_file[0] == seed_file[1]:
-		seed_file[1] = random.chioce(seed_list)
+    fls_len = 2
+    while seed_file[0] == seed_file[1]:
+        seed_file[1] = random.choice(seed_list)
 
-	for ind in range(fls_len):
-		x = vectorize_file(seed_file)
-    	loss_value, grads_value = iterate([x])
+    for ind in range(fls_len):
+        x = vectorize_file(seed_file[ind])
+        loss_value, grads_value = iterate([x])
     #np.argsort()将数组中的元素从小到大排列，返回其对应的index; axis=1表示按行排列，即对每一个行向量中的元素进行排列
-    idx = np.flip(np.argsort(np.absolute(grads_value), axis=1)[:, -MAX_FILE_SIZE:].reshape((MAX_FILE_SIZE,)), 0)
-    val = np.sign(grads_value[0][idx])
-    adv_list.append((idx, val, seed_file))
+        idx = np.flip(np.argsort(np.absolute(grads_value), axis=1)[:, -MAX_FILE_SIZE:].reshape((MAX_FILE_SIZE,)), 0)
+        val = np.sign(grads_value[0][idx])
+        adv_list.append((idx, val, seed_file[ind]))
 
     return adv_list
 
@@ -308,24 +312,24 @@ def gen_adv3(index, seed_file, model, layer_list, idxx, splie):
     loss = layer_list[-2][1].output[:, index]
     grads = K.gradients(loss, model.input)[0]
     iterate = K.function([model.input], [loss, grads])
-	
-	fls_len = 2
-	while seed_file[0] == fl[1]:
-		seed_file[1] = random.chioce(seed_list)
-	
-	for ind in range(fls_len):
-    	x = vectorize_file(seed_file)
-    	loss_value, grads_value = iterate([x])
-    	idx = np.flip(np.argsort(np.absolute(grads_value), axis=1)[:, -MAX_FILE_SIZE:].reshape((MAX_FILE_SIZE,)), 0)
-    	val = np.random.choice([1, -1], MAX_FILE_SIZE, replace=True)
-    	adv_list.append((idx, val, fl[index]))
+    
+    fls_len = 2
+    while seed_file[0] == seed_file[1]:
+        seed_file[1] = random.chioce(seed_list)
+    
+    for ind in range(fls_len):
+        x = vectorize_file(seed_file[ind])
+        loss_value, grads_value = iterate([x])
+        idx = np.flip(np.argsort(np.absolute(grads_value), axis=1)[:, -MAX_FILE_SIZE:].reshape((MAX_FILE_SIZE,)), 0)
+        val = np.random.choice([1, -1], MAX_FILE_SIZE, replace=True)
+        adv_list.append((idx, val, seed_file[index]))
 
     return adv_list
 
 
 # grenerate gradient information to guide furture muatation
 def gen_mutate2(model, edge_num, sign):
-    call = subprocess.check_output
+    tmp_list = []
     exe_path = ''
     edge_list = []
     edge_info = {}
@@ -349,44 +353,50 @@ def gen_mutate2(model, edge_num, sign):
 
     # select output neurons to compute gradient
     interested_indice = np.random.choice(MAX_BITMAP_SIZE, edge_num)
-	interester_edge = [output_layer_edges[i] for i in interested_indice]
-		
     layer_list = [(layer.name, layer) for layer in model.layers]
 
-    fn_n = open('eg2seed.txt', 'r')
-	str_dict = f.read()
-	eg2seed = eval(str_dict)
-	fn_n.close()
-
-	with open('gradient_info_p', 'w') as f:
-		for idxx in range(len(interested_indice[:])):
-			if idxx % 100 == 0:
-				del model
-				K.clear_session()
-				model = build_model()
-				model.load_weights('hard_label.h5')
-    			layer_list = [(layer.name, layer) for layer in model.layers]
-			
-			ind = int(interested_indice[idxx])
-			ind_edge = output_layer_edge[ind]
-			if eg2seed.has_key(ind_edge):
-				seed_ls = eg2seed[ind_edge]
-				ls_len = len(seed_ls)
-				if ls_len > 2:
-					seed_fl = sample(seed_ls, 2)
-				else if ls_len < 2:
-					seed_fl = seed_ls
-					seed_fl.append(choice(seed_list))
-				else:
-					seed_fl = seed_ls
-			else:
-				print("this edge not in dict\n")
-				seed_fl = sample(seed_list, 2)
+    fn_n = open('eg2sd.txt', 'r')
+    str_dict = fn_n.read()
+    eg2seed = eval(str_dict)
+    fn_n.close()
+    
+    ky_ls = eg2seed.keys()
+    fr = open('keys.txt', 'w')
+    for item in ky_ls:
+        fr.write(item)
+        fr.write('\n')
+    fr.close()
+    
+    with open('gradient_info_p', 'w') as f:
+        for idxx in range(len(interested_indice[:])):
+            if idxx % 100 == 0:
+                del model
+                K.clear_session()
+                model = build_model()
+                model.load_weights('hard_label.h5')
+                layer_list = [(layer.name, layer) for layer in model.layers]
+            
+            ind = int(interested_indice[idxx])
+            ind_edge = output_layer_edges[ind]
+            if eg2seed.has_key(ind_edge):
+                seed_ls = eg2seed[ind_edge]
+                ls_len = len(seed_ls)
+                if ls_len > 2:
+                    seed_fl = sample(seed_ls, 2)
+                elif ls_len < 2:
+                    seed_fl = seed_ls
+                    seed_fl.append(choice(seed_list))
+                else:
+                    seed_fl = seed_ls
+                print("{} eged's seeds len is {}".format(ind_edge, ls_len))
+            else:
+                print("{} edge not in dict.".format(ind_edge))
+                seed_fl = sample(seed_list, 2)
 
             adv_list = fn(ind, seed_fl, model, layer_list, idxx, 1)
             tmp_list.append(adv_list)    
-			for ele in adv_list:
-            	ele0 = [str(el) for el in ele[0]]
+            for ele in adv_list:
+                ele0 = [str(el) for el in ele[0]]
                 ele1 = [str(int(el)) for el in ele[1]]
                 ele2 = ele[2]
                 f.write(",".join(ele0) + '|' + ",".join(ele1) + '|' + ele2 + "\n")
@@ -430,7 +440,7 @@ def gen_grad(data):
     model = build_model()
     train(model)
     # model.load_weights('hard_label.h5')
-    gen_mutate2(model, 5, data[:5] == b"train")
+    gen_mutate2(model, 500, data[:5] == b"train")
     round_cnt = round_cnt + 1
     print(time.time() - t0)
 
