@@ -87,7 +87,9 @@ make
 ```
 ## Usage
 After instrumenation, copy `NearedgeInfo.txt`,`instructed_binary`from /path/to/instructed/binary to ./programs/×××/. Then copy `new_nn.py`,`neuzz`,`afl-showmap`,`libCollAFLDyninst.so` to ./programs/×××/.<br>
+
 After completing this, We use a sample program readelf as an example to demonstrate how to execute.<br/>
+
 Open a terminal, start nn module
 ```bash
     #python nn.py [program [arguments]]
