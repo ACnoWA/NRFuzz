@@ -1,17 +1,93 @@
-# NEUZZ: a neural-network-assisted fuzzer (S&P'19)
-See IEEE S&P(Oakland)'19 [slides](https://drive.google.com/file/d/1_A33wucTOA2nZpKVArvsXajh-2LNrCZK/view?usp=sharing) and paper [NEUZZ: Efficient Fuzzing with Neural Program Smoothing](https://arxiv.org/abs/1807.05620) for details.
-## Prerequisite
-Tested on a machine with Nvidia 1080Ti, Ubuntu 16.04/18.04, Tensorflow 1.8.0 and Keras 2.2.3.<br/>
-We recommend running NEUZZ on a machine with a Nvidia 1080Ti or higher for efficient NN training.
+# Overview
+
+##
+Tested on a machine with Nvidia 2080Ti, Ubuntu 16.04/18.04, Tensorflow 1.8.0 and Keras 2.2.3.<br/>
 - Python 2.7
 - Tensorflow
 - Keras
-## Build
+
+# Install dyninst
+We use Dyninst to instrument target binaries. So firstly, install Dyninst [the branch](https://github.com/mxz297/dyninst).
+For the branch of dyninst, use `csifuzz`.
+## step1
 ```bash
-    gcc -O3 -funroll-loops ./neuzz.c -o neuzz
+mkdir dyninst101
+cd dyninst101
+root_dir=`pwd`
+```
+## step2 Install capstone
+```bash
+git clone https://github.com/mxz297/capstone.git thirdparty/capstone
+cd thirdparty/capstone
+git checkout access-fixes
+cd $root_dir
+cd thirdparty/capstone
+mkdir install
+mkdir -p build
+cd build
+
+# Configure
+cmake -DCMAKE_INSTALL_PREFIX=`pwd`/../install ..
+
+# Install
+nprocs=`cat /proc/cpuinfo | awk '/^processor/{print $3}' | wc -l`
+make -j "$(($nprocs / 2))" install
+```
+## step3 Install libunwind
+```bash
+cd $root_dir
+git clone  https://github.com/mxz297/libunwind.git thirdparty/libunwind
+cd thirdparty/libunwind
+mkdir install
+# Configure
+./autogen.sh
+./configure --prefix=`pwd`/install --enable-cxx-exceptions
+
+# Install
+nprocs=`cat /proc/cpuinfo | awk '/^processor/{print $3}' | wc -l`
+make -j "$(($nprocs / 2))" install
+```
+## step4 Install Dyninst
+```bash
+cd $root_dir
+git clone https://github.com/mxz297/dyninst.git thirdparty/dyninst-10.1.0
+cd thirdparty/dyninst-10.1.0/
+git checkout csifuzz
+cd $root_dir
+cd thirdparty/dyninst-10.1.0/
+mkdir install
+mkdir -p build
+cd build
+
+# Configure
+cmake -DLibunwind_ROOT_DIR=`pwd`/../../libunwind/install -DCapstone_ROOT_DIR=`pwd`/../../capstone/install/ -DCMAKE_INSTALL_PREFIX=`pwd`/../install -G 'Unix Makefiles' ..
+
+nprocs=`cat /proc/cpuinfo | awk '/^processor/{print $3}' | wc -l`
+make -j "$(($nprocs / 2))"
+# Build
+#   Dyninst build tends to succeed with a retry after an initial build failure.
+#   Cover that base with couple of retries.
+
+make install
+```
+# Set up Envs
+```bash
+export DYNINST_INSTALL=/path/to/dyninst/install/dir
+export NRFUZZ_PATH=/path/to/nrfuzz
+
+export DYNINSTAPI_RT_LIB=$DYNINST_INSTALL/lib/libdyninstAPI_RT.so
+export LD_LIBRARY_PATH=$DYNINST_INSTALL/lib:$NRFUZZ_PATH
+export PATH=$PATH:$NRFUZZ_PATH
+```
+# Build
+```bash
+cd /path/to/nrfuzz
+make
+./CollAFLDyninst -i /path/to/need/instruct/binary -o /path/to/instructed/binary
 ```
 ## Usage
-We use a sample program readelf as an example.<br/>
+After instrumenation, copy `NearedgeInfo.txt`,`instructed_binary`from /path/to/instructed/binary to ./programs/×××/. Then copy `new_nn.py`,`neuzz`,`afl-showmap`,`libCollAFLDyninst.so` to ./programs/×××/.
+After completing this, We use a sample program readelf as an example to demonstrate how to execute.<br/>
 Open a terminal, start nn module
 ```bash
     #python nn.py [program [arguments]]
@@ -22,14 +98,9 @@ open another terminal, start neuzz module.
     #./neuzz -i in_dir -o out_dir -l mutation_len [program path [arguments]] @@
     ./neuzz -i neuzz_in -o seeds -l 7506 ./readelf -a @@  
 ```
-If you want to try NEUZZ on a new program, 
-1. Compile the new program from source code using afl-gcc.
-2. Collect the training data by running AFL on the binary for a while(about an hour), then copy the queue folder to neuzz_in.
-3. Follow the above two steps to start NN module and NEUZZ module.
 ## Sample programs
-Try 10 real-world programs on NEUZZ. Check setup details at programs/[program names]/README.
+Try 10 real-world programs on NRFuzz. Check setup details at programs/[program names]/README.
 
-## Contact
-Feel free to send me email about Neuzz. dongdong at cs.columbia.edu
+
 
 
