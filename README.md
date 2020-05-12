@@ -92,8 +92,8 @@ After completing this, We use a sample program readelf as an example to demonstr
 
 Open a terminal, start nn module
 ```bash
-    #python nn.py [program [arguments]]
-    python nn.py ./readelf -a
+    #python new_nn.py [program [arguments]]
+    python new_nn.py ./readelf -a
 ```
 open another terminal, start neuzz module.
 ```bash
