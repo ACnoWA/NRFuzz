@@ -367,11 +367,10 @@ bool edgeInstrument(BPatch_binaryEdit * appBin, BPatch_image *appImage,
 	return true;
 }
 
-//load addr-id pairs from file
 bool readAddrs() {
 	
-    string cond_addr_ids = out_path + "/" + COND_ADDR_ID;
-    string condnot_addr_ids = out_path + "/" + COND_NOT_ADDR_ID;
+	string cond_addr_ids = out_path + "/" + COND_ADDR_ID;
+	string condnot_addr_ids = out_path + "/" + COND_NOT_ADDR_ID;
 	
 	ifstream CondTaken_file, CondNot_file;
     
@@ -593,20 +592,19 @@ bool rcdNearEdges(vector< BPatch_function * >& allFunctions) {
 				
 			(*bb_iter)->getIncomingEdges(comingEdge);
 			
-			//record these outgoing edges' near edge
 			for(edge_iter = outgoingEdge.begin(); edge_iter != outgoingEdge.end(); ++edge_iter) {
 				edge_id = get_edgeId(edge_iter);	
 				if ( flag ) {
 			
 					vector<BPatch_edge *>::iterator cmedge_iter;
 					nEdges.clear();
-					/*record parent' edges	
+					//record parent' edges	
 					for(cmedge_iter = comingEdge.begin(); cmedge_iter != comingEdge.end(); ++cmedge_iter) {
 						nedge_id = get_edgeId(cmedge_iter);
 						if ( flag ) {
 							nEdges.push_back(nedge_id);
 						}
-					}*/
+					}
 
 					
 					BPatch_basicBlock *trg_bb = (*edge_iter)->getTarget();	
