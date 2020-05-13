@@ -367,10 +367,11 @@ bool edgeInstrument(BPatch_binaryEdit * appBin, BPatch_image *appImage,
 	return true;
 }
 
+//load addr-id pairs from file
 bool readAddrs() {
 	
-	string cond_addr_ids = out_path + "/" + COND_ADDR_ID;
-	string condnot_addr_ids = out_path + "/" + COND_NOT_ADDR_ID;
+    string cond_addr_ids = out_path + "/" + COND_ADDR_ID;
+    string condnot_addr_ids = out_path + "/" + COND_NOT_ADDR_ID;
 	
 	ifstream CondTaken_file, CondNot_file;
     
