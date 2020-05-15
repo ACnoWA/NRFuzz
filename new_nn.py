@@ -19,10 +19,14 @@ from tensorflow import set_random_seed
 from keras.models import Sequential
 from keras.layers import Dense, Dropout, Activation
 from keras.callbacks import ModelCheckpoint
+from keras.backend.tensorflow_backend import set_session
 from random import sample
 from random import choice
 
-os.environ["CUDA_VISIBLE_DEVICES"]="0"
+os.environ["CUDA_VISIBLE_DEVICES"]="3"
+config = tf.ConfigProto()
+config.gpu_options.allow_growth = True
+sess = tf.Session(config=config)
 HOST = '127.0.0.1'
 PORT = 12012
 
@@ -322,7 +326,7 @@ def gen_adv3(index, seed_file, model, layer_list, idxx, splie):
         loss_value, grads_value = iterate([x])
         idx = np.flip(np.argsort(np.absolute(grads_value), axis=1)[:, -MAX_FILE_SIZE:].reshape((MAX_FILE_SIZE,)), 0)
         val = np.random.choice([1, -1], MAX_FILE_SIZE, replace=True)
-        adv_list.append((idx, val, seed_file[index]))
+        adv_list.append((idx, val, seed_file[ind]))
 
     return adv_list
 
